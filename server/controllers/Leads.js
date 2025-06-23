@@ -5,11 +5,23 @@ const Employee = require("../models/Employee");
 exports.createLeads = async (req, res) => {
   try {
     const { company, email, phone, tag, status, employee } = req.body;
+    const imageFile = req.files?.image;
 
     // Convert tag string to array, supporting both single & comma-separated input
     const tagsArray = typeof tag === "string"
       ? tag.split(",").map(t => t.trim()).filter(Boolean)
       : [];
+
+    let uploadedImage;
+    if (imageFile) {
+      const imageUploadResponse = await uploadImageToCloudinary(
+        imageFile,
+        process.env.FOLDER_NAME,
+        1000,
+        1000
+      );
+      uploadedImage = imageUploadResponse.secure_url;
+    }
 
     // Create new lead with correct fields
     const newLead = await Leads.create({
@@ -19,6 +31,7 @@ exports.createLeads = async (req, res) => {
       tags: tagsArray,
       status,
       employeeAssigned: employee,
+      image: uploadedImage || "",
     });
 
     // Increment noOfLeads for the assigned employee
@@ -65,7 +78,8 @@ exports.updateLeads = async (req, res) => {
   try {
     const { leadId, company, email, phone, status, employee } = req.body;
     const tags = req.body.tags || [];
-    const image = req.file ? req.file.path : undefined;
+    const imageFile = req.files?.image;
+
 
     const existingLead = await Leads.findById(leadId);
     if (!existingLead) {
@@ -84,6 +98,17 @@ exports.updateLeads = async (req, res) => {
       });
     }
 
+    let uploadedImage;
+    if (imageFile) {
+      const imageUploadResponse = await uploadImageToCloudinary(
+        imageFile,
+        process.env.FOLDER_NAME,
+        1000,
+        1000
+      );
+      uploadedImage = imageUploadResponse.secure_url;
+    }
+
     const updateFields = {
       company,
       email,
@@ -92,7 +117,7 @@ exports.updateLeads = async (req, res) => {
       employeeAssigned: employee, // 🔥 FIXED: match field name in schema
       tags: Array.isArray(tags) ? tags : [tags],
     };
-    if (image) updateFields.image = image;
+    if (uploadedImage) updateFields.image = uploadedImage;
 
     const updatedLead = await Leads.findByIdAndUpdate(leadId, updateFields, { new: true });
 
